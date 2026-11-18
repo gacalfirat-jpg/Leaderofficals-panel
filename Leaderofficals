@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sosyal Medya Büyütme Paneli</title>
+    <style>
+        :root { --primary: #2563eb; --dark: #0f172a; --card: #1e293b; --text: #f8fafc; --success: #10b981; --danger: #ef4444; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', sans-serif; }
+        body { background: var(--dark); color: var(--text); line-height: 1.6; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .hidden { display: none !important; }
+        
+        /* Navbar */
+        nav { background: var(--card); padding: 15px 25px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #334155; }
+        .logo { font-size: 1.4rem; font-weight: bold; color: #38bdf8; }
+        .nav-right { display: flex; gap: 15px; align-items: center; }
+        .badge { background: var(--success); padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; }
+        
+        /* Kartlar ve Formlar */
+        .card { background: var(--card); padding: 25px; border-radius: 12px; border: 1px solid #334155; margin-bottom: 20px; }
+        .auth-box { max-width: 420px; margin: 60px auto; }
+        h2 { margin-bottom: 15px; color: #38bdf8; }
+        label { display: block; margin-bottom: 5px; font-size: 0.9rem; color: #94a3b8; }
+        input, select { width: 100%; padding: 12px; margin-bottom: 15px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; background: var(--primary); color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        .btn-sm { width: auto; padding: 6px 12px; font-size: 0.85rem; }
+        .btn-danger { background: var(--danger); }
+        .btn-success { background: var(--success); }
+
+        /* Tablolar */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+        th { color: #94a3b8; }
+        .status-pending { color: #f59e0b; font-weight: bold; }
+        .status-completed { color: #10b981; font-weight: bold; }
+
+        /* Grid */
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+        /* WhatsApp Butonu */
+        .wa-float { position: fixed; bottom: 25px; right: 25px; background: #25d366; color: white; padding: 14px 20px; border-radius: 50px; text-decoration: none; font-weight: bold; box-shadow: 0 4px 15px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 8px; z-index: 999; }
+        .wa-float:hover { background: #1ebe5d; }
+    </style>
+</head>
+<body>
+
+    <!-- Üst Menü -->
+    <nav id="navbar" class="hidden">
+        <div class="logo">SMM Panel Pro</div>
+        <div class="nav-right">
+            <span id="userDisplay"></span>
+            <span class="badge" id="balanceDisplay">0.00 TL</span>
+            <button class="btn-sm btn-danger" onclick="logout()">Çıkış</button>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- GİRİŞ VE KAYIT EKRANI -->
+        <div id="authSection" class="auth-box card">
+            <h2 id="authTitle">Giriş Yap</h2>
+            <label>Kullanıcı Adı</label>
+            <input type="text" id="authUser" placeholder="Örn: ahmet123">
+            <label>Şifre</label>
+            <input type="password" id="authPass" placeholder="••••••••">
+            <button onclick="handleAuth()" id="authBtn">Giriş Yap</button>
+            <p style="margin-top:15px; text-align:center; font-size:0.9rem; color:#94a3b8; cursor:pointer;" onclick="toggleAuthMode()" id="authSwitchText">
+                Hesabın yok mu? <b>Kayıt Ol</b>
+            </p>
+            <div style="margin-top:15px; padding:10px; background:#0f172a; border-radius:8px; font-size:0.8rem; color:#94a3b8;">
+                <b>Varsayılan Admin Girişi:</b><br>
+                Kullanıcı: <code>admin</code> | Şifre: <code>123456</code>
+            </div>
+        </div>
+
+        <!-- KULLANICI PANELİ -->
+        <div id="userSection" class="hidden">
+            <div class="grid">
+                <!-- Yeni Sipariş -->
+                <div class="card">
+                    <h2>Yeni Sipariş Oluştur</h2>
+                    <label>Kategori & Servis Seçin</label>
+                    <select id="serviceSelect" onchange="calculatePrice()"></select>
+                    
+                    <label>Profil veya Gönderi Linki</label>
+                    <input type="text" id="orderLink" placeholder="https://instagram.com/kullaniciadi">
+                    
+                    <label>Miktar (Min: 100 - Max: 50.000)</label>
+                    <input type="number" id="orderQty" value="1000" min="100" oninput="calculatePrice()">
+                    
+                    <div style="margin-bottom:15px; font-size:1.1rem;">
+                        Toplam Tutar: <b id="totalPrice" style="color:#38bdf8;">0.00 TL</b>
+                    </div>
+                    <button onclick="placeOrder()">Siparişi Onayla</button>
+                </div>
+
+                <!-- Bakiye Yükleme -->
+                <div class="card">
+                    <h2>Bakiye Ekle</h2>
+                    <p style="font-size:0.9rem; color:#94a3b8; margin-bottom:15px;">
+                        Papara, Havale/EFT veya Kart ile bakiye yüklemek için tutar girip WhatsApp üzerinden dekont iletebilirsiniz.
+                    </p>
+                    <label>Yüklenecek Tutar (TL)</label>
+                    <input type="number" id="addBalanceAmount" placeholder="Örn: 100">
+                    <button class="btn-success" onclick="requestBalance()">Bakiye Bildirimi Oluştur (WhatsApp)</button>
+                </div>
+            </div>
+
+            <!-- Sipariş Geçmişi -->
+            <div class="card">
+                <h2>Sipariş Geçmişim</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Servis</th>
+                            <th>Link</th>
+                            <th>Miktar</th>
+                            <th>Tutar</th>
+                            <th>Durum</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userOrdersTable"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- ADMİN PANELİ -->
+        <div id="adminSection" class="hidden">
+            <div class="grid">
+                <!-- Servis Ekleme -->
+                <div class="card">
+                    <h2>Yeni Servis Ekle</h2>
+                    <label>Servis Adı</label>
+                    <input type="text" id="newServiceName" placeholder="Instagram Türk Takipçi (1000 Adet)">
+                    <label>1000 Adet Fiyatı (TL)</label>
+                    <input type="number" id="newServicePrice" placeholder="25.00">
+                    <button onclick="addService()">Servisi Sisteme Ekle</button>
+                </div>
+
+                <!-- Kullanıcıya Bakiye Tanımlama -->
+                <div class="card">
+                    <h2>Kullanıcıya Bakiye Yükle</h2>
+                    <label>Kullanıcı Seçin</label>
+                    <select id="adminUserSelect"></select>
+                    <label>Eklenecek Tutar (TL)</label>
+                    <input type="number" id="adminAddBalance" placeholder="50">
+                    <button class="btn-success" onclick="adminGiveBalance()">Bakiyeyi Tanımla</button>
+                </div>
+            </div>
+
+            <!-- Tüm Siparişleri Yönetme -->
+            <div class="card">
+                <h2>Gelen Tüm Siparişler</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Kullanıcı</th>
+                            <th>Servis</th>
+                            <th>Link</th>
+                            <th>Miktar</th>
+                            <th>Durum</th>
+                            <th>İşlem</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminOrdersTable"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- WhatsApp Canlı Destek Butonu (Numaranızı 905XXXXXXXXX formatında yazın) -->
+    <a href="https://wa.me/905427292278?text=Merhaba,%20panel%20hakkında%20destek%20almak%20istiyorum." target="_blank" class="wa-float">
+        <span>💬 WhatsApp Destek</span>
+    </a>
+
+    <script>
+        // --- VERİTABANI BAŞLANGIÇ AYARLARI (LocalStorage) ---
+        const defaultServices = [
+            { id: 1, name: "Instagram Garantili Takipçi (1K Fiyatı)", price: 30 },
+            { id: 2, name: "Instagram Organik Beğeni (1K Fiyatı)", price: 12 },
+            { id: 3, name: "TikTok Keşfet Etkili İzlenme (1K Fiyatı)", price: 5 },
+            { id: 4, name: "TikTok Kalıcı Takipçi (1K Fiyatı)", price: 45 }
+        ];
+
+        const defaultUsers = [
+            { username: "admin", password: "123456", role: "admin", balance: 9999 }
+        ];
+
+        if (!localStorage.getItem("smm_services")) localStorage.setItem("smm_services", JSON.stringify(defaultServices));
+        if (!localStorage.getItem("smm_users")) localStorage.setItem("smm_users", JSON.stringify(defaultUsers));
+        if (!localStorage.getItem("smm_orders")) localStorage.setItem("smm_orders", JSON.stringify([]));
+
+        let isRegisterMode = false;
+        let currentUser = JSON.parse(localStorage.getItem("smm_current_user")) || null;
+
+        // --- GİRİŞ / KAYIT İŞLEMLERİ ---
+        function toggleAuthMode() {
+            isRegisterMode = !isRegisterMode;
+            document.getElementById("authTitle").innerText = isRegisterMode ? "Kayıt Ol" : "Giriş Yap";
+            document.getElementById("authBtn").innerText = isRegisterMode ? "Hesap Oluştur" : "Giriş Yap";
+            document.getElementById("authSwitchText").innerHTML = isRegisterMode 
+                ? "Zaten hesabın var mı? <b>Giriş Yap</b>" 
+                : "Hesabın yok mu? <b>Kayıt Ol</b>";
+        }
+
+        function handleAuth() {
+            const u = document.getElementById("authUser").value.trim();
+            const p = document.getElementById("authPass").value.trim();
+            if (!u || !p) return alert("Kullanıcı adı ve şifre boş bırakılamaz!");
+
+            let users = JSON.parse(localStorage.getItem("smm_users"));
+
+            if (isRegisterMode) {
+                if (users.find(x => x.username === u)) return alert("Bu kullanıcı adı zaten alınmış!");
+                const newUser = { username: u, password: p, role: "user", balance: 0 };
+                users.push(newUser);
+                localStorage.setItem("smm_users", JSON.stringify(users));
+                alert("Kayıt başarılı! Şimdi giriş yapabilirsiniz.");
+                toggleAuthMode();
+            } else {
+                const found = users.find(x => x.username === u && x.password === p);
+                if (!found) return alert("Kullanıcı adı veya şifre hatalı!");
+                currentUser = found;
+                localStorage.setItem("smm_current_user", JSON.stringify(currentUser));
+                renderApp();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem("smm_current_user");
+            currentUser = null;
+            renderApp();
+        }
+
+        // --- EKRAN YÖNETİMİ ---
+        function renderApp() {
+            if (!currentUser) {
+                document.getElementById("navbar").classList.add("hidden");
+                document.getElementById("authSection").classList.remove("hidden");
+                document.getElementById("userSection").classList.add("hidden");
+                document.getElementById("adminSection").classList.add("hidden");
+                return;
+            }
+
+            // Güncel kullanıcı verisini çek
+            const users = JSON.parse(localStorage.getItem("smm_users"));
+            currentUser = users.find(x => x.username === currentUser.username);
+            localStorage.setItem("smm_current_user", JSON.stringify(currentUser));
+
+            document.getElementById("navbar").classList.remove("hidden");
+            document.getElementById("authSection").classList.add("hidden");
+            document.getElementById("userDisplay").innerText = "Hoş geldin, " + currentUser.username;
+            document.getElementById("balanceDisplay").innerText = currentUser.balance.toFixed(2) + " TL";
+
+            if (currentUser.role === "admin") {
+                document.getElementById("adminSection").classList.remove("hidden");
+                document.getElementById("userSection").classList.add("hidden");
+                loadAdminData();
+            } else {
+                document.getElementById("userSection").classList.remove("hidden");
+                document.getElementById("adminSection").classList.add("hidden");
+                loadUserData();
+            }
+        }
+
+        // --- KULLANICI FONKSİYONLARI ---
+        function loadUserData() {
+            const services = JSON.parse(localStorage.getItem("smm_services"));
+            const select = document.getElementById("serviceSelect");
+            select.innerHTML = services.map(s => `<option value="${s.id}" data-price="${s.price}">${s.name} - ${s.price} TL</option>`).join("");
+            calculatePrice();
+
+            const orders = JSON.parse(localStorage.getItem("smm_orders")).filter(o => o.user === currentUser.username);
+            document.getElementById("userOrdersTable").innerHTML = orders.reverse().map(o => `
+                <tr>
+                    <td>#${o.id}</td>
+                    <td>${o.service}</td>
+                    <td>${o.link}</td>
+                    <td>${o.qty}</td>
+                    <td>${o.total.toFixed(2)} TL</td>
+                    <td class="${o.status === 'Tamamlandı' ? 'status-completed' : 'status-pending'}">${o.status}</td>
+                </tr>
+            `).join("");
+        }
+
+        function calculatePrice() {
+            const select = document.getElementById("serviceSelect");
+            if (!select.options.length) return;
+            const pricePer1k = parseFloat(select.options[select.selectedIndex].getAttribute("data-price"));
+            const qty = parseInt(document.getElementById("orderQty").value) || 0;
+            const total = (pricePer1k / 1000) * qty;
+            document.getElementById("totalPrice").innerText = total.toFixed(2) + " TL";
+        }
+
+        function placeOrder() {
+            const select = document.getElementById("serviceSelect");
+            const serviceName = select.options[select.selectedIndex].text;
+            const pricePer1k = parseFloat(select.options[select.selectedIndex].getAttribute("data-price"));
+            const link = document.getElementById("orderLink").value.trim();
+            const qty = parseInt(document.getElementById("orderQty").value);
+            const total = (pricePer1k / 1000) * qty;
+
+            if (!link) return alert("Lütfen profil veya gönderi linki girin!");
+            if (qty < 100) return alert("Minimum sipariş miktarı 100 adettir!");
+            if (currentUser.balance < total) return alert("Yetersiz bakiye! Lütfen bakiye yükleyin.");
+
+            // Bakiyeden düş
+            let users = JSON.parse(localStorage.getItem("smm_users"));
+            const idx = users.findIndex(x => x.username === currentUser.username);
+            users[idx].balance -= total;
+            localStorage.setItem("smm_users", JSON.stringify(users));
+
+            // Siparişi kaydet
+            let orders = JSON.parse(localStorage.getItem("smm_orders"));
+            orders.push({
+                id: Math.floor(1000 + Math.random() * 9000),
+                user: currentUser.username,
+                service: serviceName,
+                link: link,
+                qty: qty,
+                total: total,
+                status: "İşleme Alındı"
+            });
+            localStorage.setItem("smm_orders", JSON.stringify(orders));
+
+            alert("Siparişiniz başarıyla oluşturuldu!");
+            document.getElementById("orderLink").value = "";
+            renderApp();
+        }
+
+        function requestBalance() {
+            const amount = document.getElementById("addBalanceAmount").value;
+            if (!amount || amount <= 0) return alert("Geçerli bir tutar girin!");
+            const msg = `Merhaba, ${currentUser.username} kullanıcı adlı hesabıma ${amount} TL bakiye yüklemek istiyorum. IBAN/Papara bilgisi alabilir miyim?`;
+            window.open(`https://wa.me/905427292278?text=${encodeURIComponent(msg)}`, "_blank");
+        }
+
+        // --- ADMİN FONKSİYONLARI ---
+        function loadAdminData() {
+            const users = JSON.parse(localStorage.getItem("smm_users")).filter(u => u.role !== "admin");
+            document.getElementById("adminUserSelect").innerHTML = users.length 
+                ? users.map(u => `<option value="${u.username}">${u.username} (Mevcut: ${u.balance.toFixed(2)} TL)</option>`).join("")
+                : `<option value="">Henüz kayıtlı müşteri yok</option>`;
+
+            const orders = JSON.parse(localStorage.getItem("smm_orders"));
+            document.getElementById("adminOrdersTable").innerHTML = orders.reverse().map(o => `
+                <tr>
+                    <td>#${o.id}</td>
+                    <td><b>${o.user}</b></td>
+                    <td>${o.service}</td>
+                    <td><a href="${o.link}" target="_blank" style="color:#38bdf8;">Linke Git</a></td>
+                    <td>${o.qty}</td>
+                    <td class="${o.status === 'Tamamlandı' ? 'status-completed' : 'status-pending'}">${o.status}</td>
+                    <td>
+                        ${o.status !== 'Tamamlandı' ? `<button class="btn-sm btn-success" onclick="completeOrder(${o.id})">Tamamla</button>` : '✓'}
+                    </td>
+                </tr>
+            `).join("");
+        }
+
+        function addService() {
+            const name = document.getElementById("newServiceName").value.trim();
+            const price = parseFloat(document.getElementById("newServicePrice").value);
+            if (!name || !price) return alert("Servis adı ve fiyatını girin!");
+
+            let services = JSON.parse(localStorage.getItem("smm_services"));
+            services.push({ id: Date.now(), name: name, price: price });
+            localStorage.setItem("smm_services", JSON.stringify(services));
+
+            document.getElementById("newServiceName").value = "";
+            document.getElementById("newServicePrice").value = "";
+            alert("Yeni servis eklendi!");
+        }
+
+        function adminGiveBalance() {
+            const targetUser = document.getElementById("adminUserSelect").value;
+            const amount = parseFloat(document.getElementById("adminAddBalance").value);
+            if (!targetUser || !amount) return alert("Kullanıcı ve tutar seçin!");
+
+            let users = JSON.parse(localStorage.getItem("smm_users"));
+            const idx = users.findIndex(x => x.username === targetUser);
+            users[idx].balance += amount;
+            localStorage.setItem("smm_users", JSON.stringify(users));
+
+            document.getElementById("adminAddBalance").value = "";
+            alert(`${targetUser} hesabına ${amount} TL eklendi!`);
+            loadAdminData();
+        }
+
+        function completeOrder(orderId) {
+            let orders = JSON.parse(localStorage.getItem("smm_orders"));
+            const idx = orders.findIndex(o => o.id === orderId);
+            orders[idx].status = "Tamamlandı";
+            localStorage.setItem("smm_orders", JSON.stringify(orders));
+            loadAdminData();
+        }
+
+        renderApp();
+    </script>
+</body>
+</html>
